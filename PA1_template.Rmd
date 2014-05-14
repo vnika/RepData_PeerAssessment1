@@ -1,20 +1,89 @@
 # Reproducible Research: Peer Assessment 1
 
+```{r setoptions, echo=TRUE}
+opts_chunk$set(echo = FALSE)
+```
 
 ## Loading and preprocessing the data
-
-
+```{r read_data}
+dt = read.csv("activity.csv", as.is = TRUE) 
+str(dt)
+summary(dt)
+```
 
 ## What is mean total number of steps taken per day?
+```{r num_steps_per_per_day_hist, fig.width= 11}
+mean_per_day = 0
+median_per_day = 0
+num_steps_per_per_day_hist <- function(dt){
+       steps_per_day = sapply(split(dt$steps,dt$date), sum, na.rm = TRUE)
+       mean_per_day <<- round(mean(steps_per_day),2)
+       median_per_day <<- round(median(steps_per_day),2)
+       hist(steps_per_day, col = "cadetblue", main = "Total number of steps taken per day", xlab = "", ylab = "")
+       abline(v = mean_per_day, col = "gold", lwd = 3 )
+       abline(v = median_per_day, col = "deeppink", lwd = 3 )
+       legend("topright", legend = c(paste("mean =",mean_per_day), paste("median =",median_per_day)), 
+                                     lwd = 3,col = c("gold","deeppink"))
+}
 
-
-
+num_steps_per_per_day_hist(dt)
+```
+### The mean and median of original data:  
+### - mean = `r mean_per_day`
+### - median = `r median_per_day`
 ## What is the average daily activity pattern?
-
-
-
+```{r daily_activity_pattern, fig.width= 11}
+daily_activity_pattern = sapply(split(dt$steps,dt$interval),mean, na.rm = TRUE)
+#daily_activity_pattern = as.vector(daily_activity_pattern, mode = "numeric")
+max_interval = which.max(daily_activity_pattern)
+max_activity = daily_activity_pattern[max_interval]
+t = max_interval * 5
+h = as.integer(t/60)
+m = t -h*60
+str_t = paste(h, m, sep = ":")
+plot(daily_activity_pattern, type = "l", col = "cadetblue", lwd = 3, main = "Daily activity partern", xlab = "", ylab = "")
+abline(v = max_interval, lty = 4)
+legend("topright", legend = paste("the most active time is around", str_t), lty = 4)
+```
+### The most "active" 5-minute interval is `r max_interval`, that corresponds to `r str_t`.  
+### What about yours most active time of the day?
+  
 ## Imputing missing values
-
+```{r missing_values, fig.width= 11 }
+steps_NA = sum(is.na(dt$steps))
+dt_noNA = dt
+dt_noNA$steps[is.na(dt$steps)] = daily_activity_pattern[as.character(dt$interval[which(is.na(dt$steps), arr.ind=TRUE)])]
+#d = dim(dt)[1]
+#for( i in 1 : d ){
+#       if (is.na(dt$steps[i]))
+#              dt$steps[i] = daily_activity_pattern[as.character(dt$interval[i])]
+#}
+num_steps_per_per_day_hist(dt_noNA)
+```
+### There was `r steps_NA` missing values in original data set.
+### Missing data was replaced by the mean of corresponding 5-minute interval.
+### And as we see, filling missing data makes median and mean equal.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r weekdays, fig.width= 11}
+library(lattice)
+dt_noNA$days = weekdays(as.Date(dt_noNA$date,"%Y-%m-%d"))
+dt_noNA$weekday = as.factor(dt_noNA$days != "Sunday" & dt_noNA$days != "Saturday")
+levels(dt_noNA$weekday) = c("weekend","weekday")
+dt_wd = split(dt_noNA,dt_noNA$weekday)
+weekend_activity_pattern = sapply(split((dt_wd$weekend)$steps,(dt_wd$weekend)$interval),mean, na.rm = TRUE)
+weekday_activity_pattern = sapply(split((dt_wd$weekday)$steps,(dt_wd$weekday)$interval),mean, na.rm = TRUE)
+#weekend_activity_pattern = as.vector(weekend_activity_pattern)
+#weekday_activity_pattern = as.vector(weekday_activity_pattern)
+activity_pattern = append(weekday_activity_pattern,weekend_activity_pattern)
+daytime = as.integer(names(activity_pattern))
+activity_pattern = as.vector(activity_pattern)
+f = c(rep("weekday", length(weekday_activity_pattern)),rep("weekend", length(weekend_activity_pattern)))
+f = factor(f)
+#df = data.frame( activity = activity_pattern,weekday = f)
+xyplot(activity_pattern ~ daytime | f, layout = c(1,2), type = "l", col = "cadetblue",
+       xlab = "Interval", ylab = "Number of steps", lwd = 3 )
+```
+### The patterns look similar, but on weekends less early morning activity and "rush hour" pick.
+###  So, weekends are more healthy!
